@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+    <h1 id="code">???</h1>
+    <button id="start">Click to Start</button>
+    <br />
+    <input id="remoteCode" />
+    <br />
+    <button id="connect">Click to Connect</button>
+
+    <script>
+        function setupPeerConnection(host) {
+            let pc = new RTCPeerConnection({
+                iceServers: [
+                    {
+                    urls: 'stun:stun.l.google.com:19302'
+                    }
+                ]
+            });
+
+            let socket = new WebSocket("ws://localhost:9001");
+
+            socket.onmessage = async (ev) => {
+                const data = JSON.parse(ev.data);
+
+                console.log(data);
+
+                switch (data.status) {
+                    case 'success-host':
+                        // tell the user the code we recieved from the signaling server
+                        document.getElementById('code').textContent = data.code;
+                        break;
+
+                    case 'success-local-id':
+                        pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(atob(data.localId)))).catch(console.log)
+                        pc.createAnswer()
+                            .then(d => pc.setLocalDescription(d))
+                            .then(() => {
+                                socket.send(JSON.stringify({
+                                    type: 'connect-user',
+                                    code: document.getElementById('remoteCode').value,
+                                    remoteId: btoa(JSON.stringify(pc.localDescription)),
+                                }));
+                            })
+                            .catch(console.log)
+                        break;
+                    
+                    case 'connected':
+                        // now that we have the client desc, update our remote desc
+                        // and complete the handshake process...
+                        const remoteDesc = new RTCSessionDescription(JSON.parse(atob(data.remoteId)));
+                        pc.setRemoteDescription(remoteDesc);
+                        break;
+                }
+            };
+
+            pc.onsignalingstatechange = e => console.log(pc.signalingState);
+            pc.oniceconnectionstatechange = e => console.log(pc.iceConnectionState);
+
+            pc.ondatachannel = e => {
+                let dc = e.channel
+                console.log('New DataChannel ' + dc.label)
+                dc.onclose = () => console.log('dc has closed')
+                dc.onopen = () => console.log('dc has opened')
+                dc.onmessage = e => console.log(`Message from DataChannel '${dc.label}' payload '${e.data}'`)
+            };
+
+            if (host) {
+                pc.onicecandidate = event => {
+                    console.log(event);
+                    if (event.candidate === null) {
+                        socket.send(JSON.stringify({
+                            type: 'connect-host',
+                            localId: btoa(JSON.stringify(pc.localDescription)),
+                        }));
+                    }
+                }
+                pc.onnegotiationneeded = e => pc.createOffer().then(d => pc.setLocalDescription(d)).catch(console.log)
+            }
+
+            return [pc, socket];
+        }
+
+        document.getElementById("start").onclick = async () => {
+            let [pc, socket] = setupPeerConnection(true);
+            let channel = pc.createDataChannel("file-transfer");
+            channel.onopen = () => {
+                channel.send("Hello!");
+            };
+        };
+
+
+        document.getElementById("connect").onclick = async () => {
+            let [pc, socket] = setupPeerConnection(false);
+
+            socket.onopen = () => {
+                socket.send(JSON.stringify({
+                    type: 'get-local-id',
+                    code:  document.getElementById("remoteCode").value,
+                }));
+            };
+        };
+    </script>
+
+</body>
+
+</html>

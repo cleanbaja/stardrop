@@ -1,0 +1,25 @@
+{
+  "name": "stardropd",
+  "version": "1.0.0",
+  "description": "signaling server for stardrop p2p transfers",
+  "scripts": {
+    "dev": "tsx src/main.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cleanbaja/stardrop.git"
+  },
+  "author": "Yusuf M",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/cleanbaja/stardrop/issues"
+  },
+  "homepage": "https://github.com/cleanbaja/stardrop#readme",
+  "devDependencies": {
+    "@types/node": "^20.14.2",
+    "tsx": "^4.15.4"
+  },
+  "dependencies": {
+    "uWebSockets.js": "github:uNetworking/uWebSockets.js#v20.43.0"
+  }
+}
